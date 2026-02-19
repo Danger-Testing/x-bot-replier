@@ -49,8 +49,8 @@ async function pollMentions() {
     // Step 6: Poll mentions timeline
     const params = {
       max_results: 10,
-      "tweet.fields": "author_id,conversation_id,created_at",
-      expansions: "author_id",
+      "tweet.fields": "author_id,conversation_id,created_at,referenced_tweets",
+      expansions: "author_id,referenced_tweets.id,referenced_tweets.id.author_id",
     };
     if (sinceId) {
       params.since_id = sinceId;
@@ -71,6 +71,14 @@ async function pollMentions() {
       }
     }
 
+    // Build a map of tweet IDs → tweet data from expanded referenced tweets
+    const tweetMap = {};
+    if (mentions.includes?.tweets) {
+      for (const t of mentions.includes.tweets) {
+        tweetMap[t.id] = t;
+      }
+    }
+
     // Process from oldest to newest so we save progress correctly
     const tweets = [...mentions.data.data].reverse();
 
@@ -88,8 +96,21 @@ async function pollMentions() {
       const lastId = loadLastMentionId();
       if (lastId && BigInt(tweetId) <= BigInt(lastId)) continue;
 
-      // Step 10: Generate reply text
-      const replyText = REPLY_TEMPLATE.replace("{username}", authorUsername);
+      // Step 10: Generate reply text — link to the parent tweet (the one they replied to)
+      let parentLink = "";
+      const repliedTo = tweet.referenced_tweets?.find((r) => r.type === "replied_to");
+      if (repliedTo) {
+        const parentTweet = tweetMap[repliedTo.id];
+        const parentAuthor = parentTweet ? userMap[parentTweet.author_id] || "i" : "i";
+        parentLink = `https://x.com/${parentAuthor}/status/${repliedTo.id}`;
+      } else {
+        // If it's not a reply, link to the mention tweet itself
+        parentLink = `https://x.com/${authorUsername}/status/${tweetId}`;
+      }
+      const appLink = `https://www.xrageroom.com/x?url=${encodeURIComponent(parentLink)}`;
+      const replyText = REPLY_TEMPLATE
+        .replace("{username}", authorUsername)
+        .replace("{link}", appLink);
 
       console.log(
         `💬 Replying to @${authorUsername} (tweet ${tweetId}): "${tweet.text.slice(0, 60)}..."`
