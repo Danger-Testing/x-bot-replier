@@ -1,0 +1,14 @@
+{
+  "name": "x-bot-replier",
+  "version": "1.0.0",
+  "description": "X bot that auto-replies to all mentions",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node bot.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "twitter-api-v2": "^1.17.2"
+  }
+}
